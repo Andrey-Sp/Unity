@@ -2,15 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Enemy : MonoBehaviour
+public class Money : MonoBehaviour
 {
-    [SerializeField] private int enemyDamage;
+    [SerializeField] private int coinsAmount;
+    
     private void OnTriggerEnter2D(Collider2D other)
     {
         PlayerMover player = other.GetComponent<PlayerMover>();
         if (player != null)
         {
-            player.GetHurt(enemyDamage);
+            player.AddCoins(coinsAmount);
+            Destroy(gameObject);
         }
     }
 }

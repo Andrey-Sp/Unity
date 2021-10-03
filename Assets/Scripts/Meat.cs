@@ -2,15 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Enemy : MonoBehaviour
+public class Meat : MonoBehaviour
 {
-    [SerializeField] private int enemyDamage;
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         PlayerMover player = other.GetComponent<PlayerMover>();
         if (player != null)
         {
-            player.GetHurt(enemyDamage);
+            StartCoroutine(player.RestoreEnergy(100));
+            Destroy(gameObject);
         }
     }
 }
