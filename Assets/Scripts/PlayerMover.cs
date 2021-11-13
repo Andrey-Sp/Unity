@@ -22,10 +22,15 @@ public class PlayerMover : MonoBehaviour
     [SerializeField] private float headCheckerRadius;
     [SerializeField] private Transform headChecker;
     [SerializeField] private float attackCheckerRadius;
-    [SerializeField] private Transform leftAttackChecker;
-    [SerializeField] private Transform rightAttackChecker;
-    [SerializeField] private UnityEngine.Object enemy;
+    [SerializeField] private Transform AttackChecker;
+    [SerializeField] private int attackDamage;
     [SerializeField] private int maxHp;
+    [SerializeField] private bool _faceRight;
+
+    [SerializeField] private Transform _wavePoint;
+    [SerializeField] private Rigidbody2D _wave;
+    [SerializeField] private float _waveSpeed;
+    [SerializeField] private SpriteRenderer waveSpriteRenderer;
 
 
     [Header(("Animation"))]
@@ -36,6 +41,7 @@ public class PlayerMover : MonoBehaviour
     [SerializeField] private string crouchAnimatorKey;
     [SerializeField] private string attackAnimatorKey;
     [SerializeField] private string hurtAnimatorKey;
+    [SerializeField] private string castAnimatorKey;
 
     [Header(("UI"))]
     [SerializeField] private TMP_Text coinsAmountText;
@@ -45,15 +51,12 @@ public class PlayerMover : MonoBehaviour
     private float direction;
     private bool jump;
     private bool crawl;
-    public bool canHit;
     private bool attack;
     private int currentHp;
     private int currentEnergy;
     private float EnergyLossDelay = 0.55f;
     private float lastEnergyLossTime;
-    public int kills = 0;
-
-    private int coinsAmount;
+    public int coinsAmount;
     public int CoinsAmount
     {
         get => coinsAmount;
@@ -106,29 +109,37 @@ public class PlayerMover : MonoBehaviour
             jump = true;
         }
 
-        if (direction > 0 && spriteRenderer.flipX)
-            spriteRenderer.flipX = false;
-        else if (direction < 0 && !spriteRenderer.flipX)
-            spriteRenderer.flipX = true;
+        if (direction > 0 && !_faceRight || direction < 0 && _faceRight)
+        {
+            _faceRight = !_faceRight;
+            transform.Rotate(0, 180, 0);
+        }
 
         crawl = Input.GetKey(KeyCode.LeftControl);
 
         if (Input.GetKey(KeyCode.E))
         {
+            animator.SetBool(attackAnimatorKey, true);
+        }
+        else
+            animator.SetBool(attackAnimatorKey, false);
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            if (!_faceRight)
+                waveSpriteRenderer.flipX = true;
+            else if (_faceRight)
+                waveSpriteRenderer.flipX = false;
             if (CurrentEnergy >= 25)
             {
-                animator.SetBool(attackAnimatorKey, true);
+                animator.SetBool(castAnimatorKey, true);
                 if (Time.time - lastEnergyLossTime > EnergyLossDelay)
                 {
                     lastEnergyLossTime = Time.time;
                     LoseEnergy();
                 }
-                if (canHit)
-                    Invoke("DestroyEnemy", 0.3f);
             }
         }
-        else
-            animator.SetBool(attackAnimatorKey, false);
 
     }
     private void FixedUpdate()
@@ -136,10 +147,6 @@ public class PlayerMover : MonoBehaviour
         rigidbody.velocity = new Vector2(direction * speed, rigidbody.velocity.y);
         bool canJump = Physics2D.OverlapCircle(groundChecker.position, groundCheckerRadius, whatIsGround);
         bool canStand = !Physics2D.OverlapCircle(headChecker.position, headCheckerRadius, whatIsGround);
-        if(spriteRenderer.flipX)
-            canHit = Physics2D.OverlapCircle(leftAttackChecker.position, attackCheckerRadius, whatIsEnemy);
-        else
-            canHit = Physics2D.OverlapCircle(rightAttackChecker.position, attackCheckerRadius, whatIsEnemy);
 
         headCollider.enabled = !crawl && canStand;
 
@@ -164,13 +171,7 @@ public class PlayerMover : MonoBehaviour
         Gizmos.DrawWireSphere(groundChecker.position, groundCheckerRadius);
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(headChecker.position, headCheckerRadius);
-        Gizmos.DrawWireSphere(leftAttackChecker.position, attackCheckerRadius);
-        Gizmos.DrawWireSphere(rightAttackChecker.position, attackCheckerRadius);
-    }
-    private void DestroyEnemy()
-    {
-        Destroy(enemy);
-        kills++;
+        Gizmos.DrawWireCube(AttackChecker.position, new Vector3(attackCheckerRadius, attackCheckerRadius, 0));
     }
     public void AddHp(int hpPoints)
     {
@@ -182,6 +183,40 @@ public class PlayerMover : MonoBehaviour
     private void LoseEnergy()
     {
         CurrentEnergy -= 33;
+    }
+
+    private void Attack()
+    {
+        Collider2D[] targets = Physics2D.OverlapBoxAll(AttackChecker.position, new Vector2(attackCheckerRadius, attackCheckerRadius), whatIsEnemy);
+        foreach(var target in targets)
+        {
+            Eye eye = target.GetComponent<Eye>();
+            if(eye != null)
+            {
+                eye.TakeDamage(attackDamage);
+            }
+            Skeleton skeleton = target.GetComponent<Skeleton>();
+            if (skeleton != null)
+            {
+                skeleton.TakeDamage(attackDamage);
+            }
+            Mushroom mushroom = target.GetComponent<Mushroom>();
+            if (mushroom != null)
+            {
+                mushroom.TakeDamage(attackDamage);
+            }
+        }
+    }
+
+    private void CastWave()
+    {
+        Rigidbody2D wave = Instantiate(_wave, _wavePoint.position, Quaternion.identity);
+        wave.velocity = _waveSpeed * transform.right;
+    }
+
+    private void CastEnd()
+    {
+        animator.SetBool(castAnimatorKey, false);
     }
 
     private IEnumerator RestoreHp(int pointsToAdd)
